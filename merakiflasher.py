@@ -51,7 +51,15 @@ class Flasher:
         print "Flashing will take approximately 20 minutes"
 
         self.cmds = {
+            'keepalive': [
+                "mfill -b 0xb1000090 -l 4 -p 0x00000042",
+                "mfill -b 0xb1000090 -l 4 -p 0x00000002"
+                ],
             'part1': [
+                "mfill -b 0xb1000098 -l 4 -p 0x00000043",
+                "x -b 0xb1000098",
+                "mfill -b 0xb1000090 -l 4 -p 0x00000042",
+                "mfill -b 0xb1000090 -l 4 -p 0x00000002",
                 "ip_address -l 192.168.84.1 -h 192.168.84.9",
                 "fis init",
                 "load -r -b 0x80041000 -m tftp -h 192.168.84.9 openwrt-atheros-vmlinux.gz",
@@ -122,28 +130,40 @@ class Flasher:
                 print "Configuring router for reflash"
                 self.set_progress('unflashed')
                 self.reflash = False
-
+            
             progress = self.get_progress()
 
-            if progress == 'part1 complete':
-                print "Flashing part 2 of 4 (~5 mins)"
-                self.send_commands(self.cmds['part2'])
-                self.set_progress('part2 complete')
-            elif progress == 'part2 complete':
-                print "Flashing part 3 of 4 (~5 mins)"
-                self.send_commands(self.cmds['part3'])
-                self.set_progress('part3 complete')
-            elif progress == 'part3 complete':
-                print "Flashing part 4 of 4 (~5 mins)"
-                self.send_commands(self.cmds['part4'])
-                self.set_progress('flashing complete')
-            elif progress == 'flashing complete':
-                print "Flashing complete! Please reboot your router."
-                exit(0)
-            else:
-                print "Flashing part 1 of 4 (~5 mins)"
-                self.send_commands(self.cmds['part1'])
-                self.set_progress('part1 complete')
+            while progress != "flashing complete":
+                self.flash_chunk(progress)
+                progress = self.get_progress()
+                
+            print "Flashing complete! Please reboot your router."
+            exit(0)
+
+    def flash_chunk(self,progress):
+        if progress == 'part1 complete':
+            print "Flashing part 2 of 4 (~5 mins)"
+            self.send_commands(self.cmds['part2'])
+            self.send_commands(self.cmds['keepalive'])
+            self.set_progress('part2 complete')
+        elif progress == 'part2 complete':
+            print "Flashing part 3 of 4 (~5 mins)"
+            self.send_commands(self.cmds['part3'])
+            self.send_commands(self.cmds['keepalive'])
+            self.set_progress('part3 complete')
+        elif progress == 'part3 complete':
+            print "Flashing part 4 of 4 (~5 mins)"
+            self.send_commands(self.cmds['part4'])
+            self.send_commands(self.cmds['keepalive'])            
+            self.set_progress('flashing complete')
+        elif progress == 'flashing complete':
+            print "Flashing complete! Please reboot your router."
+            exit(0)
+        else:
+            print "Flashing part 1 of 4 (~5 mins)"
+            self.send_commands(self.cmds['part1'])
+            self.send_commands(self.cmds['keepalive'])            
+            self.set_progress('part1 complete')
 
     def wait_for_boot(self):
         print "waiting for router to (re)boot"
